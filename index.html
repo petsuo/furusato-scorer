@@ -79,6 +79,33 @@
   .score .fill{height:100%;background:linear-gradient(90deg,var(--moss),var(--ochre));border-radius:4px}
   .score .lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px}
   .empty{padding:36px 16px;text-align:center;color:var(--muted);font-size:14px}
+  li .tap{cursor:pointer}
+  .sheet{position:fixed;inset:0;background:rgba(30,42,32,.45);z-index:20;display:flex;align-items:flex-end}
+  .sheet[hidden]{display:none}
+  .sheet .body{background:var(--paper);width:100%;max-height:92vh;border-radius:16px 16px 0 0;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .sheet .head{position:sticky;top:0;background:var(--paper);display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);z-index:1}
+  .sheet .head b{font-size:14px}
+  .sheet .close{font:inherit;font-size:14px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px;color:var(--ink)}
+  .gallery{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:8px;padding:12px 16px 4px;-webkit-overflow-scrolling:touch}
+  .gallery img{flex:0 0 84%;aspect-ratio:1;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:10px;scroll-snap-align:center}
+  .gcount{font-size:11px;color:var(--muted);text-align:center;margin-bottom:6px}
+  .dsec{padding:10px 16px}
+  .dsec h3{font-size:13px;margin:0 0 6px;color:var(--moss-deep);display:flex;align-items:center;gap:6px}
+  .dsec h3::before{content:"";display:inline-block;width:4px;height:14px;background:var(--moss);border-radius:2px}
+  .dtitle{font-size:15px;font-weight:700;line-height:1.4;margin:6px 0 4px}
+  .dprice{font-size:22px;font-weight:700;color:var(--moss-deep)}
+  .dprice small{font-size:12px;font-weight:400;color:var(--muted);margin-left:6px}
+  .facts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  .facts>div{background:#fff;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .facts .v{font-size:15px;font-weight:600} .facts .k{font-size:11px;color:var(--muted)}
+  .desc{background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+  .desc.caution{background:#FFF6F3;border-color:#E9C9C2}
+  .desc.tips{background:var(--ochre-soft);border-color:#E8D6A8;white-space:normal}
+  .desc ul{margin:0;padding-left:18px}
+  .dactions{position:sticky;bottom:0;background:var(--paper);display:flex;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+  .dactions button,.dactions a{flex:1;font:inherit;font-size:15px;padding:12px;border-radius:8px;text-align:center;text-decoration:none;cursor:pointer}
+  .dactions .fav{background:#fff;border:1px solid var(--line);color:var(--ink)} .dactions .fav.on{border-color:#C2453A;color:#C2453A}
+  .dactions .go{background:var(--moss);border:1px solid var(--moss);color:#fff;flex:1.4}
   .heart{font:inherit;font-size:20px;line-height:1;background:none;border:0;padding:2px 4px;cursor:pointer;color:#B9BFB4}
   .heart.on{color:#C2453A}
   .name-row{display:flex;gap:6px;align-items:flex-start}
@@ -175,6 +202,12 @@
   <button class="chip" data-sort="price">寄付額が安い順</button>
 </div>
 <ol id="list"></ol>
+<div class="sheet" id="sheet" hidden>
+  <div class="body" id="sheetbody">
+    <div class="head"><b>返礼品の詳細</b><button class="close" id="sheetclose">閉じる</button></div>
+    <div id="sheetcontent"></div>
+  </div>
+</div>
 <div class="empty" id="empty">検索結果がここに並びます</div>
 
 <script>
@@ -262,7 +295,7 @@ function buildQuery(genreKw, page){
   const p = new URLSearchParams({
     applicationId: SHARED.appId, accessKey: SHARED.accessKey,
     format:'json', formatVersion:'2', keyword:kw, hits:'30', page:String(page), imageFlag:'1',
-    elements:'itemCode,itemName,itemPrice,itemUrl,mediumImageUrls,reviewCount,reviewAverage,shopName,genreId'
+    elements:'itemCode,itemName,itemPrice,itemUrl,mediumImageUrls,reviewCount,reviewAverage,shopName,genreId,itemCaption,availability'
   });
   if(sel.price!==null){ const [,lo,hi]=PRICES[sel.price]; if(lo) p.set('minPrice',lo); if(hi) p.set('maxPrice',hi); }
   if(ng) p.set('NGKeyword', ng);
@@ -411,9 +444,9 @@ function render(){
     const qtxt = fmtQty(it.q);
     const perTxt = it.q ? (it.q.type==='個' ? it.per.toFixed(1)+it.q.unitLabel : fmtQty({type:it.q.type, qty:Math.round(it.per)})) : null;
     li.innerHTML = `
-      <div class="thumb" style="background-image:url('${img(it)}')"><span class="rank">${i+1}</span></div>
+      <div class="thumb tap" data-open="${esc(it.itemCode)}" style="background-image:url('${img(it)}')"><span class="rank">${i+1}</span></div>
       <div>
-        <div class="name-row"><div class="name"><a href="${it.itemUrl}" target="_blank" rel="noopener">${esc(it.itemName)}</a></div>
+        <div class="name-row"><div class="name tap" data-open="${esc(it.itemCode)}">${esc(it.itemName)}</div>
           <button class="heart${fav[it.itemCode]?' on':''}" data-fav="${it.itemCode}" aria-label="お気に入り">${fav[it.itemCode]?'♥':'♡'}</button></div>
         <div class="meta"><b>${it.itemPrice.toLocaleString()}円</b>
           ${it.reviewCount? `<span><span class="stars">${stars(it.reviewAverage)}</span> ${it.reviewAverage.toFixed(1)}（${it.reviewCount}件）</span>` : '<span>レビューなし</span>'}
@@ -431,6 +464,8 @@ function render(){
 $('list').addEventListener('click', e=>{
   const h = e.target.closest('button[data-fav]');
   if(h){ const it = items.find(x=>x.itemCode===h.dataset.fav); if(it) toggleFav(it); return; }
+  const o = e.target.closest('[data-open]');
+  if(o){ const it = items.find(x=>x.itemCode===o.dataset.open); if(it) openDetail(it); return; }
   const b = e.target.closest('button[data-i]'); if(!b) return;
   const it = items[+b.dataset.i];
   const v = prompt('内容量を入力（例：1.2kg、500g×3、12個）', fmtQty(it.q)||'');
@@ -444,6 +479,64 @@ $('sortrow').addEventListener('click', e=>{
   const b = e.target.closest('[data-sort]'); if(!b) return;
   sortKey = b.dataset.sort; [...$('sortrow').children].forEach(c=>c.classList.toggle('on', c===b)); render();
 });
+
+// ---------- 詳細シート ----------
+function bigImg(u){ return u.replace(/\?_ex=\d+x\d+/, '?_ex=600x600'); }
+function splitCaption(cap){
+  const t = (cap||'').replace(/\r/g,'').replace(/([【■●◆◎○□▼▲])/g,'\n$1').replace(/(※)/g,'\n$1').replace(/。(?=[^\n）)])/g,'。\n');
+  const lines = t.split('\n').map(x=>x.trim()).filter(Boolean);
+  const caution=[], body=[];
+  const isC = l => /^※|注意|ご了承|了承ください|ご理解|キャンセル|返品|返金|交換|変更(でき|は)|不可|お受けでき|承れ|できかね|離島|同梱|予告なく|遅れ|遅延|指定はでき|指定でき|受け付け|お断り/.test(l);
+  lines.forEach(l=> (isC(l)? caution : body).push(l));
+  return {caution, body};
+}
+function pick(cap, re){ const m=(cap||'').match(re); return m? m[0].replace(/\s+/g,' ').slice(0,60) : null; }
+function tipsFor(it){
+  const cap = it.itemCaption||''; const all = it.itemName+' '+cap; const tips=[];
+  if(/冷凍/.test(all)) tips.push('冷凍で届きます。冷凍庫の空きを確認しておくと安心です');
+  else if(/冷蔵/.test(all)) tips.push('冷蔵で届きます。到着後は早めの消費が前提です');
+  else if(/常温/.test(all)) tips.push('常温で届きます');
+  const exp = pick(cap, /(賞味期限|消費期限)[^。\n【]{0,40}/); if(exp) tips.push(exp.replace(/[】:：]\s*/,'：'));
+  if(it.ship) tips.push('発送：'+it.ship+'。年末は申込が集中するため、到着時期がずれることがあります');
+  else tips.push('発送時期の記載が商品名にありません。楽天のページで確認をおすすめします');
+  if(it.q && it.q.note==='選べる下限') tips.push('内容量が選べる商品です。スコアは最小の量で計算しています');
+  if(/定期便/.test(all)) tips.push('定期便です。表示の寄付額は複数回分の合計として扱われるので、1回あたりの量に注意');
+  if(/訳あり|不揃い|規格外/.test(all)) tips.push('訳あり品です。大きさや形が不揃いな前提です');
+  if(it.availability===0) tips.push('現在、在庫切れまたは受付停止の可能性があります');
+  tips.push('楽天の申込画面では「ワンストップ特例申請書の要否」「寄付金の使い道」を選ぶ欄があります。ワンストップを使う場合は「希望する」を選び忘れないように');
+  return tips;
+}
+function openDetail(it){
+  const imgs = (it.mediumImageUrls||[]).map(u=> typeof u==='string'? u : u.imageUrl).filter(Boolean).map(bigImg);
+  const {caution, body} = splitCaption(it.itemCaption);
+  const perTxt = it.q ? (it.q.type==='個' ? it.per.toFixed(1)+it.q.unitLabel : fmtQty({type:it.q.type, qty:Math.round(it.per)})) : '—';
+  $('sheetcontent').innerHTML = `
+    <div class="gallery">${imgs.map(u=>`<img src="${u}" alt="">`).join('') || '<div class="gcount">画像なし</div>'}</div>
+    ${imgs.length>1? `<div class="gcount">横にスワイプで ${imgs.length} 枚</div>`:''}
+    <div class="dsec">
+      <div class="dtitle">${esc(it.itemName)}</div>
+      <div class="dprice">${it.itemPrice.toLocaleString()}円<small>${esc(it.shopName)}</small></div>
+      <div class="facts">
+        <div><div class="v">${perTxt}</div><div class="k">1万円あたり</div></div>
+        <div><div class="v">${fmtQty(it.q)||'不明'}</div><div class="k">内容量${it.q&&it.q.note?'（'+it.q.note+'）':''}</div></div>
+        <div><div class="v">${it.reviewCount? '<span class="stars">'+stars(it.reviewAverage)+'</span> '+it.reviewAverage.toFixed(1) : 'なし'}</div><div class="k">レビュー${it.reviewCount? '（'+it.reviewCount+'件）':''}</div></div>
+        <div><div class="v">${it.ship? esc(it.ship):'記載なし'}</div><div class="k">発送時期</div></div>
+      </div>
+    </div>
+    <div class="dsec"><h3>説明文</h3><div class="desc">${body.length? esc(body.join('\n')) : '説明文が取得できませんでした'}</div></div>
+    ${caution.length? `<div class="dsec"><h3>注意事項（説明文から抽出）</h3><div class="desc caution">${esc(caution.join('\n'))}</div></div>`:''}
+    <div class="dsec"><h3>確認しておくとよいこと</h3><div class="desc tips"><ul>${tipsFor(it).map(t=>'<li>'+esc(t)+'</li>').join('')}</ul></div></div>
+    <div class="dsec" style="font-size:11px;color:var(--muted)">※ 表示できるのはAPIで取得できる説明文の範囲です。画像で書かれた説明や詳細な規約は楽天のページでご確認ください。</div>
+    <div class="dactions">
+      <button class="fav${fav[it.itemCode]?' on':''}" id="dfav">${fav[it.itemCode]?'♥ お気に入り済み':'♡ お気に入り'}</button>
+      <a class="go" href="${it.itemUrl}" target="_blank" rel="noopener">楽天で見る →</a>
+    </div>`;
+  $('dfav').onclick = ()=>{ toggleFav(it); const on=!!fav[it.itemCode]; $('dfav').className='fav'+(on?' on':''); $('dfav').textContent = on?'♥ お気に入り済み':'♡ お気に入り'; };
+  $('sheet').hidden = false; $('sheetbody').scrollTop = 0; document.body.style.overflow='hidden';
+}
+function closeDetail(){ $('sheet').hidden = true; document.body.style.overflow=''; }
+$('sheetclose').onclick = closeDetail;
+$('sheet').addEventListener('click', e=>{ if(e.target===$('sheet')) closeDetail(); });
 
 // ---------- 検索 ----------
 let stopFlag = false;
