@@ -1,5 +1,5 @@
 // 返礼品スコア検索 service worker
-const CACHE = 'furusato-v7';
+const CACHE = 'furusato-v8';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
