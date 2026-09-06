@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>返礼品スコア検索</title>
+<style>
+  :root{
+    --paper:#F5F6F0; --ink:#1E2A20; --muted:#6B7568; --line:#D9DDD2;
+    --moss:#2F6B3A; --moss-deep:#214B29; --moss-soft:#E7F0E5;
+    --ochre:#B8871C; --ochre-soft:#FBF3DF; --warn:#A4432E; --star:#E0A100;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;
+    font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+  header{padding:16px 16px 8px}
+  header h1{margin:0;font-size:21px;font-weight:700}
+  header p{margin:2px 0 0;color:var(--muted);font-size:12px}
+
+  /* 条件パネル */
+  .panel{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .group{padding:10px 16px;border-bottom:1px solid var(--line)}
+  .group:last-child{border-bottom:0}
+  .gtitle{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:600;margin-bottom:6px}
+  .gtitle small{font-weight:400;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font:inherit;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .chip.on{background:var(--moss);border-color:var(--moss);color:#fff}
+  input[type=text],input[type=password],input[type=number],select{
+    width:100%;font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+  input:focus,select:focus,button:focus-visible{outline:2px solid var(--moss);outline-offset:1px}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+  .slider{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .slider input{flex:1}
+  details{padding:8px 16px}
+  summary{cursor:pointer;color:var(--moss);font-size:13px;list-style:none}
+  summary::before{content:"＋ "} details[open] summary::before{content:"－ "}
+  .row{display:flex;gap:8px;margin-top:8px} .row>*{flex:1;min-width:0}
+
+  /* 検索ボタン（固定） */
+  .bar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;z-index:5}
+  .bar button{flex:1;font:inherit;font-size:16px;padding:12px;border-radius:8px;border:1px solid var(--moss);background:var(--moss);color:#fff;cursor:pointer}
+  .bar button.ghost{flex:0 0 auto;background:#fff;color:var(--moss)}
+  button:disabled{opacity:.5}
+
+  .status{padding:8px 16px;font-size:13px;color:var(--muted);min-height:34px}
+  .status.err{color:var(--warn)}
+  .sortrow{display:flex;gap:6px;padding:0 16px 8px;overflow-x:auto}
+  .sortrow .chip{white-space:nowrap;font-size:12px;padding:5px 10px}
+
+  /* 結果カード */
+  ol{list-style:none;margin:0;padding:0 12px 24px}
+  li{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:12px;display:grid;grid-template-columns:76px 1fr;gap:10px}
+  li.top{border-color:var(--moss);box-shadow:0 0 0 2px var(--moss-soft)}
+  .thumb{width:76px;height:76px;border-radius:8px;background:var(--moss-soft) center/cover no-repeat;position:relative}
+  .rank{position:absolute;top:-6px;left:-6px;background:var(--ink);color:#fff;font-size:11px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  li.top .rank{background:var(--moss)}
+  .name{font-size:13.5px;font-weight:600;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .name a{color:inherit;text-decoration:none}
+  .meta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+  .meta b{color:var(--ink)}
+  .stars{color:var(--star);letter-spacing:-1px}
+  .kpi{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px}
+  .kpi>div{background:var(--paper);border-radius:8px;padding:8px 10px}
+  .kpi .big{font-size:20px;font-weight:700;color:var(--moss-deep);line-height:1.1}
+  .kpi .cap{font-size:11px;color:var(--muted)}
+  .kpi .none{font-size:13px;color:var(--warn)}
+  .kpi button{font:inherit;font-size:11px;padding:2px 8px;margin-left:6px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--moss)}
+  .score{grid-column:1/-1}
+  .score .track{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+  .score .fill{height:100%;background:linear-gradient(90deg,var(--moss),var(--ochre));border-radius:4px}
+  .score .lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px}
+  .empty{padding:36px 16px;text-align:center;color:var(--muted);font-size:14px}
+  .how{padding:8px 16px 0}
+  .howbody{font-size:12.5px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;padding:4px 12px;margin-top:6px}
+  .howbody p{margin:8px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>返礼品スコア検索</h1>
+  <p>条件をタップで選んで、「1万円あたりの量」と「レビュー」で並べ替え</p>
+</header>
+
+<div class="panel">
+  <div class="group">
+    <div class="gtitle">ジャンル <small>複数OK・未選択なら全部</small></div>
+    <div class="chips" id="gGenre"></div>
+  </div>
+  <div class="group">
+    <div class="gtitle">寄付額 <small>ひとつ選ぶ</small></div>
+    <div class="chips" id="gPrice"></div>
+  </div>
+  <div class="group">
+    <div class="gtitle">こだわり <small>複数OK</small></div>
+    <div class="chips" id="gCond"></div>
+  </div>
+  <div class="group">
+    <div class="gtitle">重視するもの</div>
+    <div class="slider"><span>量</span><input type="range" id="w" min="0" max="100" value="60"><span>レビュー</span></div>
+  </div>
+  <details>
+    <summary>キーワード・除外ワード</summary>
+    <div class="row"><div><label>キーワード（任意）</label><input type="text" id="kw" placeholder="例：切り落とし"></div></div>
+    <div class="row"><div><label>除外ワード（空白区切り）</label><input type="text" id="ng" placeholder="ギフト"></div></div>
+    <div class="row">
+      <div><label>取得件数</label><select id="pages"><option value="1">30件</option><option value="2" selected>60件</option><option value="3">90件</option></select></div>
+      <div><label>ジャンルID（任意）</label><input type="text" id="genre" inputmode="numeric"></div>
+    </div>
+  </details>
+  <div class="bar">
+    <button id="go">この条件で検索</button>
+    <button class="ghost" id="stop" disabled>中止</button>
+  </div>
+</div>
+
+<details class="how">
+  <summary>スコアの計算方法</summary>
+  <div class="howbody">
+    <p><b>1万円あたりの量</b>＝ 内容量 ÷ 寄付額 × 10,000。内容量は返礼品名から自動で読み取ります（優先順：「合計○kg」の表記 → 「500g〜3kg」など選べる場合はその下限 → 「500g×3」の掛け算 → 単独の「○kg」表記）。読み取れないときは「修正」で入力できます。</p>
+    <p><b>レビュー点</b>＝ 平均評価 × 件数 ÷（件数＋20）。件数が少ないほど割り引かれるので、「5.0（2件）」より「4.6（300件）」が上になります。</p>
+    <p><b>総合スコア</b>（0〜100）＝ 量の順位 ×（1−重み）＋ レビュー点の順位 × 重み。「順位」は今回の検索結果の中での位置（百分位）で、量は同じ単位（kg同士、個数同士）の中だけで比べます。重みは「重視するもの」のスライダーで変えられます。</p>
+    <p>総合スコアは検索結果の中での相対的な位置なので、別の検索の結果と比べることはできません。内容量を読み取れない返礼品は、量の順位が最下位扱いになります。</p>
+  </div>
+</details>
+<div class="status" id="status">条件を選んで検索してください。</div>
+<div class="sortrow" id="sortrow" hidden>
+  <button class="chip on" data-sort="score">総合スコア順</button>
+  <button class="chip" data-sort="per">量が多い順</button>
+  <button class="chip" data-sort="rev">レビュー順</button>
+  <button class="chip" data-sort="price">寄付額が安い順</button>
+</div>
+<ol id="list"></ol>
+<div class="empty" id="empty">検索結果がここに並びます</div>
+
+<script>
+// ============================================================
+//  共有用の設定：ここに楽天のキーを入れると、開いた人は設定なしで使えます
+// ============================================================
+const SHARED = {
+  appId:     '',   // ← Application ID をこの '' の中に貼る
+  accessKey: '',   // ← Access Key をこの '' の中に貼る
+};
+// ============================================================
+
+// ---------- 選択肢の定義（ここを編集すれば増やせます） ----------
+const GENRES = [
+  ['牛肉','牛肉'],['豚肉','豚肉'],['鶏肉','鶏肉'],['ハンバーグ・加工肉','ハンバーグ'],
+  ['うなぎ','うなぎ'],['海鮮・魚','海鮮'],['いくら','いくら'],['ホタテ','ホタテ'],['カニ','カニ'],
+  ['米','米'],['果物','フルーツ'],['野菜','野菜'],['卵','卵'],
+  ['スイーツ','スイーツ'],['ビール','ビール'],['日本酒','日本酒'],['飲料・水','水'],
+  ['日用品','ティッシュ トイレットペーパー'],
+];
+const PRICES = [
+  ['〜5,000円',null,5000],['〜10,000円',null,10000],['10,000〜20,000円',10000,20000],
+  ['20,000〜30,000円',20000,30000],['30,000円〜',30000,null],
+];
+const CONDS = [
+  {label:'レビューあり', hasReview:true},
+  {label:'評価4.0以上', minAvg:4.0},
+  {label:'訳あり', kw:'訳あり'},
+  {label:'小分け', kw:'小分け'},
+  {label:'定期便を除く', ng:'定期便', on:true},
+  {label:'定期便のみ', kw:'定期便'},
+  {label:'冷凍', kw:'冷凍'},
+  {label:'常温', kw:'常温'},
+  {label:'発送時期が選べる', kw:'選べる'},
+];
+
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('fs2.'+k); return v===null? d : v; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('fs2.'+k, v); }catch(e){} }
+};
+const $ = id => document.getElementById(id);
+const sel = { genre:new Set(), price:null, cond:new Set(CONDS.filter(c=>c.on).map(c=>c.label)) };
+
+function chipGroup(box, defs, getLabel, isOn, onTap){
+  box.innerHTML = '';
+  defs.forEach((d,i)=>{
+    const b = document.createElement('button'); b.type='button'; b.className='chip'+(isOn(d,i)?' on':'');
+    b.textContent = getLabel(d); b.onclick = ()=>{ onTap(d,i); renderChips(); };
+    box.appendChild(b);
+  });
+}
+function renderChips(){
+  chipGroup($('gGenre'), GENRES, g=>g[0], g=>sel.genre.has(g[0]), g=>{ sel.genre.has(g[0])? sel.genre.delete(g[0]) : sel.genre.add(g[0]); });
+  chipGroup($('gPrice'), PRICES, p=>p[0], (p,i)=>sel.price===i, (p,i)=>{ sel.price = sel.price===i? null : i; });
+  chipGroup($('gCond'), CONDS, c=>c.label, c=>sel.cond.has(c.label), c=>{
+    if(sel.cond.has(c.label)) sel.cond.delete(c.label); else { sel.cond.add(c.label);
+      if(c.label==='定期便のみ') sel.cond.delete('定期便を除く'); if(c.label==='定期便を除く') sel.cond.delete('定期便のみ');
+      if(c.label==='冷凍') sel.cond.delete('常温'); if(c.label==='常温') sel.cond.delete('冷凍'); }
+  });
+}
+renderChips();
+['kw','ng','genre','pages','w'].forEach(id=>{
+  const v = store.get(id, null); if(v!==null) $(id).value = v;
+  $(id).addEventListener('change', ()=> store.set(id, $(id).value));
+});
+
+// ---------- API ----------
+function jsonp(url){
+  return new Promise((resolve,reject)=>{
+    const cb = 'rk'+Date.now()+Math.floor(Math.random()*1e6);
+    const s = document.createElement('script');
+    const clean = ()=>{ delete window[cb]; s.remove(); };
+    window[cb] = d => { clean(); resolve(d); };
+    s.onerror = ()=>{ clean(); reject(new Error('APIから拒否されました（403/400の可能性）')); };
+    s.src = url + '&callback=' + cb; document.body.appendChild(s);
+  });
+}
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+async function apiGet(url){ try{ const r = await fetch(url); return await r.json(); }catch(e){ return jsonp(url); } }
+
+function buildQuery(genreKw, page){
+  const conds = CONDS.filter(c=>sel.cond.has(c.label));
+  const kw = ['ふるさと納税', genreKw, $('kw').value.trim(), ...conds.map(c=>c.kw).filter(Boolean)].filter(Boolean).join(' ');
+  const ng = [$('ng').value.trim(), ...conds.map(c=>c.ng).filter(Boolean)].filter(Boolean).join(' ');
+  const p = new URLSearchParams({
+    applicationId: SHARED.appId, accessKey: SHARED.accessKey,
+    format:'json', formatVersion:'2', keyword:kw, hits:'30', page:String(page), imageFlag:'1',
+    elements:'itemCode,itemName,itemPrice,itemUrl,mediumImageUrls,reviewCount,reviewAverage,shopName,genreId'
+  });
+  if(sel.price!==null){ const [,lo,hi]=PRICES[sel.price]; if(lo) p.set('minPrice',lo); if(hi) p.set('maxPrice',hi); }
+  if(ng) p.set('NGKeyword', ng);
+  if(conds.some(c=>c.hasReview)) p.set('hasReviewFlag','1');
+  if($('genre').value.trim()) p.set('genreId',$('genre').value.trim());
+  return 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'+p.toString();
+}
+
+// ---------- 商品名から内容量を抽出 ----------
+function normalize(s){
+  return s.replace(/[０-９．]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+          .replace(/[×✕✖ｘＸx＊*]/g,'×').replace(/㎏/g,'kg').replace(/ｇ/g,'g').replace(/㎖/g,'ml')
+          .replace(/[〜~～－-]/g,'～').replace(/(\d),(\d{3})/g,'$1$2').replace(/\s+/g,' ');
+}
+const UNITS = [
+  {re:/kg/i, type:'g', mul:1000}, {re:/g/i, type:'g', mul:1},
+  {re:/ml|cc/i, type:'ml', mul:1}, {re:/^l$/i, type:'ml', mul:1000},
+  {re:/./, type:'個', mul:1}
+];
+const UNIT_RE = '(kg|g|ml|cc|l|個|尾|枚|本|玉|粒|缶|袋|パック|匹|貫|切|箱|杯|尾|羽|株|房|束|膳|食|人前|合)';
+function unitInfo(u){ const l=u.toLowerCase(); for(const x of UNITS){ if(x.re.test(l)) return x; } }
+
+function parseQty(name){
+  const s = normalize(name);
+  const num = '(\\d+(?:\\.\\d+)?)';
+  const res = [];
+  // 合計/総重量 が明示されていれば最優先
+  let m = s.match(new RegExp('(?:合計|総重量|総量|計)\\s*'+num+'\\s*'+UNIT_RE,'i'));
+  if(m) return mk(+m[1], m[2], '合計');
+  // 範囲（選べる）があれば下限を採用して確定
+  m = s.match(new RegExp(num+'\\s*'+UNIT_RE+'?\\s*～\\s*'+num+'\\s*'+UNIT_RE,'i'));
+  if(m) return mk(+m[1], m[2]||m[4], '選べる下限');
+  // 500g×3 / 150g×12個×2 形式
+  const reX = new RegExp(num+'\\s*'+UNIT_RE+'\\s*×\\s*'+num+'(?:\\s*[^\\d×]{0,4}?\\s*×\\s*'+num+')?','ig');
+  while((m = reX.exec(s))) res.push(mk(+m[1]*+m[3]*(m[4]?+m[4]:1), m[2], '×'));
+  // 単独の数値＋単位
+  const reS = new RegExp('(^|[^\\d.])'+num+'\\s*'+UNIT_RE+'(?![a-z])','ig');
+  while((m = reS.exec(s))) res.push(mk(+m[2], m[3], ''));
+  if(!res.length) return null;
+  // 重量 > 容量 > 個数 の優先で、同種なら最大値
+  const rank = {g:0, ml:1, '個':2};
+  res.sort((a,b)=> rank[a.type]-rank[b.type] || b.qty-a.qty);
+  return res[0];
+}
+function mk(n,u,note){ const i=unitInfo(u); return {qty:n*i.mul, type:i.type, unitLabel:i.type==='個'?u:i.type, note}; }
+function fmtQty(q){
+  if(!q) return null;
+  if(q.type==='g')  return q.qty>=1000? (q.qty/1000).toFixed(q.qty%1000?1:0)+'kg' : q.qty+'g';
+  if(q.type==='ml') return q.qty>=1000? (q.qty/1000).toFixed(q.qty%1000?1:0)+'L' : q.qty+'ml';
+  return q.qty+q.unitLabel;
+}
+
+// ---------- スコア ----------
+function percentile(arr, key){
+  const vals = arr.map(key).filter(v=>v!=null).sort((a,b)=>a-b);
+  return v => v==null? null : vals.filter(x=>x<=v).length/vals.length;
+}
+function score(items){
+  const w = +$('w').value/100;              // 0=量重視, 1=レビュー重視
+  items.forEach(it=>{ it.rev = it.reviewCount? it.reviewAverage * it.reviewCount/(it.reviewCount+20) : 0; });
+  const pRev = percentile(items, it=>it.rev);
+  const byType = {};
+  items.forEach(it=>{ if(it.q){ (byType[it.q.type] ||= []).push(it); } });
+  const pQty = {};
+  for(const t in byType) pQty[t] = percentile(byType[t], it=>it.per);
+  items.forEach(it=>{
+    const pq = it.q? pQty[it.q.type](it.per) : 0;
+    it.score = Math.round(100 * ((1-w)*pq + w*pRev(it.rev)));
+  });
+  items.sort((a,b)=> b.score-a.score);
+}
+
+
+
+// ---------- 描画 ----------
+let items = [], overrides = JSON.parse(store.get('ov','{}')), sortKey = 'score';
+function stars(avg){ const n=Math.round(avg); return '★'.repeat(n)+'☆'.repeat(5-n); }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function img(it){ const u=(it.mediumImageUrls||[])[0]; return typeof u==='string'? u : (u&&u.imageUrl)||''; }
+function render(){
+  score(items);
+  if(sortKey==='per') items.sort((a,b)=> (b.per??-1)-(a.per??-1));
+  if(sortKey==='rev') items.sort((a,b)=> b.rev-a.rev);
+  if(sortKey==='price') items.sort((a,b)=> a.itemPrice-b.itemPrice);
+  const minAvg = (CONDS.filter(c=>sel.cond.has(c.label)).find(c=>c.minAvg)||{}).minAvg;
+  const shown = minAvg? items.filter(it=>it.reviewAverage>=minAvg) : items;
+  const list = $('list'); list.innerHTML = '';
+  $('empty').style.display = shown.length? 'none':'block';
+  $('sortrow').hidden = !shown.length;
+  shown.forEach((it,i)=>{
+    const li = document.createElement('li'); if(i<3 && sortKey==='score') li.className='top';
+    const qtxt = fmtQty(it.q);
+    const perTxt = it.q ? (it.q.type==='個' ? it.per.toFixed(1)+it.q.unitLabel : fmtQty({type:it.q.type, qty:Math.round(it.per)})) : null;
+    li.innerHTML = `
+      <div class="thumb" style="background-image:url('${img(it)}')"><span class="rank">${i+1}</span></div>
+      <div>
+        <div class="name"><a href="${it.itemUrl}" target="_blank" rel="noopener">${esc(it.itemName)}</a></div>
+        <div class="meta"><b>${it.itemPrice.toLocaleString()}円</b>
+          ${it.reviewCount? `<span><span class="stars">${stars(it.reviewAverage)}</span> ${it.reviewAverage.toFixed(1)}（${it.reviewCount}件）</span>` : '<span>レビューなし</span>'}
+          <span>${esc(it.shopName)}</span></div>
+      </div>
+      <div class="kpi">
+        <div>${perTxt? `<div class="big">${perTxt}</div><div class="cap">1万円あたり</div>` : `<div class="none">量を読み取れず</div>`}</div>
+        <div>${qtxt? `<div class="big" style="font-size:16px">${qtxt}</div>`:''}<div class="cap">内容量${it.q&&it.q.note? '・'+it.q.note:''}<button data-i="${items.indexOf(it)}">修正</button></div></div>
+      </div>
+      <div class="score"><div class="track"><div class="fill" style="width:${it.score}%"></div></div>
+        <div class="lbl"><span>総合スコア</span><span>${it.score}</span></div></div>`;
+    list.appendChild(li);
+  });
+}
+$('list').addEventListener('click', e=>{
+  const b = e.target.closest('button[data-i]'); if(!b) return;
+  const it = items[+b.dataset.i];
+  const v = prompt('内容量を入力（例：1.2kg、500g×3、12個）', fmtQty(it.q)||'');
+  if(v===null) return;
+  const q = parseQty(v); if(!q){ alert('読み取れませんでした。数字＋単位で入力してください'); return; }
+  overrides[it.itemCode] = v; store.set('ov', JSON.stringify(overrides));
+  it.q = q; it.per = q.qty / it.itemPrice * 10000; render();
+});
+$('w').addEventListener('input', ()=>{ if(items.length) render(); });
+$('sortrow').addEventListener('click', e=>{
+  const b = e.target.closest('[data-sort]'); if(!b) return;
+  sortKey = b.dataset.sort; [...$('sortrow').children].forEach(c=>c.classList.toggle('on', c===b)); render();
+});
+
+// ---------- 検索 ----------
+let stopFlag = false;
+$('stop').onclick = ()=>{ stopFlag = true; };
+$('go').onclick = async ()=>{
+  if(!SHARED.appId || !SHARED.accessKey){ setStatus('このツールはまだ設定が完了していません（管理者がキーを設定する必要があります）', true); return; }
+  $('go').disabled = true; $('stop').disabled = false; stopFlag = false; items = [];
+  const seen = new Set();
+  const genreKws = sel.genre.size? [...sel.genre].map(n=>GENRES.find(g=>g[0]===n)[1]) : [''];
+  const pages = +$('pages').value; let calls=0, totalCalls = genreKws.length*pages;
+  try{
+    for(const gk of genreKws){
+      for(let p=1; p<=pages; p++){
+        if(stopFlag) break;
+        calls++; setStatus(`取得中 ${calls}/${totalCalls}…`);
+        const d = await apiGet(buildQuery(gk,p));
+        if(d.error){ throw new Error(d.error_description || d.error); }
+        (d.Items||d.items||[]).forEach(raw=>{
+          if(seen.has(raw.itemCode)) return; seen.add(raw.itemCode);
+          const it = {...raw};
+          it.q = overrides[it.itemCode] ? parseQty(overrides[it.itemCode]) : parseQty(it.itemName);
+          it.per = it.q ? it.q.qty / it.itemPrice * 10000 : null;
+          items.push(it);
+        });
+        render();
+        if(p >= (d.pageCount||1)) break;
+        if(calls < totalCalls) await sleep(1100);
+      }
+      if(stopFlag) break;
+    }
+    const miss = items.filter(x=>!x.q).length;
+    setStatus(stopFlag? `中止しました（${items.length}件）` : `${items.length}件を表示。量を読み取れなかったもの ${miss}件は「修正」から入力できます`);
+  }catch(e){ setStatus('エラー: '+e.message+'（しばらく待ってから再度お試しください）', true); }
+  $('go').disabled = false; $('stop').disabled = true;
+};
+function setStatus(t, err){ const s=$('status'); s.textContent=t; s.className='status'+(err?' err':''); }
+</script>
+</body>
+</html>
