@@ -82,7 +82,10 @@
   <details>
     <summary>設定（アプリID・ジャンルID）</summary>
     <div class="row" style="margin-top:8px">
-      <div><label>楽天アプリID</label><input type="password" id="appId" placeholder="楽天ウェブサービスで発行したID"></div>
+      <div><label>楽天アプリID（Application ID）</label><input type="password" id="appId" placeholder="04337c44-…"></div>
+    </div>
+    <div class="row">
+      <div><label>アクセスキー（Access Key）</label><input type="password" id="accessKey" placeholder="Your Apps の Access Key"></div>
     </div>
     <div class="row">
       <div><label>ジャンルID（任意）</label><input type="text" id="genre" inputmode="numeric" placeholder="下の候補から選ぶか直接入力"></div>
@@ -104,7 +107,7 @@ const store = {
   set(k, v){ try{ localStorage.setItem('fs.'+k, v); }catch(e){} }
 };
 const $ = id => document.getElementById(id);
-['appId','kw','minP','maxP','ng','genre','auto','pages','w'].forEach(id=>{
+['appId','accessKey','kw','minP','maxP','ng','genre','auto','pages','w'].forEach(id=>{
   const v = store.get(id, null); if(v!==null) $(id).value = v;
   $(id).addEventListener('change', ()=> store.set(id, $(id).value));
 });
@@ -116,16 +119,20 @@ function jsonp(url){
     const s = document.createElement('script');
     const clean = ()=>{ delete window[cb]; s.remove(); };
     window[cb] = d => { clean(); resolve(d); };
-    s.onerror = ()=>{ clean(); reject(new Error('APIに接続できませんでした')); };
+    s.onerror = ()=>{ clean(); reject(new Error('APIから拒否されました（403/400の可能性）')); };
     s.src = url + '&callback=' + cb;
     document.body.appendChild(s);
   });
 }
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
+async function apiGet(url){
+  try{ const r = await fetch(url); return await r.json(); }   // CORSが許可されていればエラー内容も読める
+  catch(e){ return jsonp(url); }                              // ダメならJSONP
+}
 
 async function fetchPage(page){
   const p = new URLSearchParams({
-    applicationId: $('appId').value.trim(), format:'json', formatVersion:'2',
+    applicationId: $('appId').value.trim(), accessKey: $('accessKey').value.trim(), format:'json', formatVersion:'2',
     keyword: ($('auto').value+' '+$('kw').value).trim(), hits:'30', page:String(page),
     elements:'itemCode,itemName,itemPrice,itemUrl,mediumImageUrls,reviewCount,reviewAverage,shopName,genreId'
   });
@@ -133,7 +140,7 @@ async function fetchPage(page){
   if($('maxP').value) p.set('maxPrice',$('maxP').value);
   if($('ng').value.trim()) p.set('NGKeyword',$('ng').value.trim());
   if($('genre').value.trim()) p.set('genreId',$('genre').value.trim());
-  return jsonp('https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?'+p.toString());
+  return apiGet('https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701?'+p.toString());
 }
 
 // ---------- 商品名から内容量を抽出 ----------
@@ -251,6 +258,7 @@ let stopFlag = false;
 $('stop').onclick = ()=>{ stopFlag = true; };
 $('go').onclick = async ()=>{
   if(!$('appId').value.trim()){ setStatus('設定欄に楽天アプリIDを入力してください', true); $('appId').focus(); return; }
+  if(!$('accessKey').value.trim()){ setStatus('設定欄にアクセスキーを入力してください', true); $('accessKey').focus(); return; }
   if(!$('kw').value.trim()){ setStatus('キーワードを入力してください', true); $('kw').focus(); return; }
   $('go').disabled = true; $('stop').disabled = false; stopFlag = false; items = [];
   const pages = +$('pages').value; let total = null;
@@ -261,7 +269,7 @@ $('go').onclick = async ()=>{
       const d = await fetchPage(p);
       if(d.error){ throw new Error(d.error_description || d.error); }
       total = d.count; 
-      (d.Items||[]).forEach(raw=>{
+      (d.Items||d.items||[]).forEach(raw=>{
         const it = {...raw};
         it.q = overrides[it.itemCode] ? parseQty(overrides[it.itemCode]) : parseQty(it.itemName);
         it.per = it.q ? it.q.qty / it.itemPrice * 10000 : null;
@@ -275,7 +283,7 @@ $('go').onclick = async ()=>{
       const miss = items.filter(x=>!x.q).length;
       setStatus(`${items.length}件を表示（該当 ${total??'?'}件）。内容量を読み取れなかったもの ${miss}件は「修正」から入力できます`);
     }
-  }catch(e){ setStatus('エラー: '+e.message+'（アプリIDや通信状況を確認してください）', true); }
+  }catch(e){ setStatus('エラー: '+e.message+'（アプリID・アクセスキー、楽天側の Allowed websites に petsuo.github.io が入っているかを確認してください）', true); }
   $('go').disabled = false; $('stop').disabled = true;
 };
 function setStatus(t, err){ const s=$('status'); s.textContent=t; s.className='status'+(err?' err':''); }
