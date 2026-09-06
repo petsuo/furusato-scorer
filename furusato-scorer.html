@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>返礼品スコア検索</title>
+<style>
+  :root{
+    --paper:#F5F6F0; --ink:#1E2A20; --muted:#6B7568; --line:#D9DDD2;
+    --moss:#2F6B3A; --moss-deep:#214B29; --ochre:#B8871C; --ochre-soft:#FBF3DF; --warn:#A4432E;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;
+    font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+  header{padding:18px 16px 10px}
+  header h1{margin:0;font-size:22px;font-weight:700;letter-spacing:.02em}
+  header p{margin:4px 0 0;color:var(--muted);font-size:13px}
+  .panel{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 16px}
+  .row{display:flex;gap:8px;margin-bottom:10px}
+  .row>*{flex:1;min-width:0}
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+  input[type=text],input[type=number],input[type=password],select{
+    width:100%;font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+  input:focus,select:focus,button:focus-visible{outline:2px solid var(--moss);outline-offset:1px}
+  button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--moss);background:var(--moss);color:#fff;padding:11px 14px;font-size:15px}
+  button.ghost{background:#fff;color:var(--moss)}
+  button:disabled{opacity:.5;cursor:default}
+  details{margin-top:4px}
+  summary{cursor:pointer;color:var(--moss);font-size:13px;list-style:none;padding:4px 0}
+  summary::before{content:"＋ ";}
+  details[open] summary::before{content:"－ ";}
+  .slider{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .slider input{flex:1}
+  .status{padding:8px 16px;font-size:13px;color:var(--muted);min-height:34px}
+  .status.err{color:var(--warn)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 8px}
+  .chip{font-size:12px;padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink)}
+  .chip.on{background:var(--moss);border-color:var(--moss);color:#fff}
+  ol{list-style:none;margin:0;padding:0 0 40px}
+  li{display:grid;grid-template-columns:1fr 92px;gap:8px 10px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--paper)}
+  li:nth-child(-n+3){background:#fff}
+  .name{font-size:14px;font-weight:600;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .name a{color:inherit;text-decoration:none}
+  .sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .sub b{color:var(--ink);font-weight:600}
+  .qty{font-size:12px;margin-top:6px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+  .qty button{padding:3px 8px;font-size:12px;background:#fff;color:var(--moss);border-color:var(--line)}
+  .qty .none{color:var(--warn)}
+  .per{text-align:right;align-self:start}
+  .per .big{font-size:22px;font-weight:700;line-height:1.1;color:var(--moss-deep)}
+  .per .cap{font-size:11px;color:var(--muted)}
+  .per .sc{margin-top:6px;display:inline-block;font-size:11px;padding:2px 7px;border-radius:4px;background:var(--ochre-soft);color:var(--ochre)}
+  .empty{padding:40px 16px;text-align:center;color:var(--muted);font-size:14px}
+  @media (prefers-reduced-motion:no-preference){ li{transition:background .2s} }
+</style>
+</head>
+<body>
+<header>
+  <h1>返礼品スコア検索</h1>
+  <p>楽天ふるさと納税の返礼品を「1万円あたりの量」と「レビュー」で並べ替えます</p>
+</header>
+
+<div class="panel">
+  <div class="row">
+    <div><label>キーワード</label><input type="text" id="kw" placeholder="例：牛肉 切り落とし"></div>
+  </div>
+  <div class="row">
+    <div><label>寄付額 下限</label><input type="number" id="minP" inputmode="numeric" placeholder="5000"></div>
+    <div><label>寄付額 上限</label><input type="number" id="maxP" inputmode="numeric" placeholder="20000"></div>
+    <div><label>取得ページ数</label>
+      <select id="pages"><option value="1">1（30件）</option><option value="3" selected>3（90件）</option><option value="5">5（150件）</option></select></div>
+  </div>
+  <div class="row">
+    <div><label>除外ワード（空白区切り）</label><input type="text" id="ng" placeholder="定期便 ギフト"></div>
+  </div>
+  <div class="slider"><span>量重視</span><input type="range" id="w" min="0" max="100" value="60"><span>レビュー重視</span></div>
+  <div class="row" style="margin-top:8px">
+    <button id="go">検索する</button>
+    <button class="ghost" id="stop" disabled>中止</button>
+  </div>
+  <details>
+    <summary>設定（アプリID・ジャンルID）</summary>
+    <div class="row" style="margin-top:8px">
+      <div><label>楽天アプリID</label><input type="password" id="appId" placeholder="楽天ウェブサービスで発行したID"></div>
+    </div>
+    <div class="row">
+      <div><label>ジャンルID（任意）</label><input type="text" id="genre" inputmode="numeric" placeholder="下の候補から選ぶか直接入力"></div>
+      <div><label>キーワードに自動付与</label>
+        <select id="auto"><option value="ふるさと納税" selected>「ふるさと納税」を付ける</option><option value="">付けない</option></select></div>
+    </div>
+  </details>
+</div>
+
+<div class="status" id="status">アプリIDを設定してから検索してください。</div>
+<div class="chips" id="genres"></div>
+<ol id="list"></ol>
+<div class="empty" id="empty">検索結果がここに並びます</div>
+
+<script>
+// ---------- 設定の保存（自分のブラウザで使う前提） ----------
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem('fs.'+k); return v===null? d : v; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem('fs.'+k, v); }catch(e){} }
+};
+const $ = id => document.getElementById(id);
+['appId','kw','minP','maxP','ng','genre','auto','pages','w'].forEach(id=>{
+  const v = store.get(id, null); if(v!==null) $(id).value = v;
+  $(id).addEventListener('change', ()=> store.set(id, $(id).value));
+});
+
+// ---------- JSONP で楽天APIを呼ぶ ----------
+function jsonp(url){
+  return new Promise((resolve,reject)=>{
+    const cb = 'rk'+Date.now()+Math.floor(Math.random()*1e6);
+    const s = document.createElement('script');
+    const clean = ()=>{ delete window[cb]; s.remove(); };
+    window[cb] = d => { clean(); resolve(d); };
+    s.onerror = ()=>{ clean(); reject(new Error('APIに接続できませんでした')); };
+    s.src = url + '&callback=' + cb;
+    document.body.appendChild(s);
+  });
+}
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+async function fetchPage(page){
+  const p = new URLSearchParams({
+    applicationId: $('appId').value.trim(), format:'json', formatVersion:'2',
+    keyword: ($('auto').value+' '+$('kw').value).trim(), hits:'30', page:String(page),
+    elements:'itemCode,itemName,itemPrice,itemUrl,mediumImageUrls,reviewCount,reviewAverage,shopName,genreId'
+  });
+  if($('minP').value) p.set('minPrice',$('minP').value);
+  if($('maxP').value) p.set('maxPrice',$('maxP').value);
+  if($('ng').value.trim()) p.set('NGKeyword',$('ng').value.trim());
+  if($('genre').value.trim()) p.set('genreId',$('genre').value.trim());
+  return jsonp('https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?'+p.toString());
+}
+
+// ---------- 商品名から内容量を抽出 ----------
+function normalize(s){
+  return s.replace(/[０-９．]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+          .replace(/[×✕✖ｘＸx＊*]/g,'×').replace(/㎏/g,'kg').replace(/ｇ/g,'g').replace(/㎖/g,'ml')
+          .replace(/[〜~～－-]/g,'～').replace(/(\d),(\d{3})/g,'$1$2').replace(/\s+/g,' ');
+}
+const UNITS = [
+  {re:/kg/i, type:'g', mul:1000}, {re:/g/i, type:'g', mul:1},
+  {re:/ml|cc/i, type:'ml', mul:1}, {re:/^l$/i, type:'ml', mul:1000},
+  {re:/./, type:'個', mul:1}
+];
+const UNIT_RE = '(kg|g|ml|cc|l|個|尾|枚|本|玉|粒|缶|袋|パック|匹|貫|切|箱|杯|尾|羽|株|房|束|膳|食|人前|合)';
+function unitInfo(u){ const l=u.toLowerCase(); for(const x of UNITS){ if(x.re.test(l)) return x; } }
+
+function parseQty(name){
+  const s = normalize(name);
+  const num = '(\\d+(?:\\.\\d+)?)';
+  const res = [];
+  // 合計/総重量 が明示されていれば最優先
+  let m = s.match(new RegExp('(?:合計|総重量|総量|計)\\s*'+num+'\\s*'+UNIT_RE,'i'));
+  if(m) return mk(+m[1], m[2], '合計');
+  // 範囲（選べる）があれば下限を採用して確定
+  m = s.match(new RegExp(num+'\\s*'+UNIT_RE+'?\\s*～\\s*'+num+'\\s*'+UNIT_RE,'i'));
+  if(m) return mk(+m[1], m[2]||m[4], '選べる下限');
+  // 500g×3 / 150g×12個×2 形式
+  const reX = new RegExp(num+'\\s*'+UNIT_RE+'\\s*×\\s*'+num+'(?:\\s*[^\\d×]{0,4}?\\s*×\\s*'+num+')?','ig');
+  while((m = reX.exec(s))) res.push(mk(+m[1]*+m[3]*(m[4]?+m[4]:1), m[2], '×'));
+  // 単独の数値＋単位
+  const reS = new RegExp('(^|[^\\d.])'+num+'\\s*'+UNIT_RE+'(?![a-z])','ig');
+  while((m = reS.exec(s))) res.push(mk(+m[2], m[3], ''));
+  if(!res.length) return null;
+  // 重量 > 容量 > 個数 の優先で、同種なら最大値
+  const rank = {g:0, ml:1, '個':2};
+  res.sort((a,b)=> rank[a.type]-rank[b.type] || b.qty-a.qty);
+  return res[0];
+}
+function mk(n,u,note){ const i=unitInfo(u); return {qty:n*i.mul, type:i.type, unitLabel:i.type==='個'?u:i.type, note}; }
+function fmtQty(q){
+  if(!q) return null;
+  if(q.type==='g')  return q.qty>=1000? (q.qty/1000).toFixed(q.qty%1000?1:0)+'kg' : q.qty+'g';
+  if(q.type==='ml') return q.qty>=1000? (q.qty/1000).toFixed(q.qty%1000?1:0)+'L' : q.qty+'ml';
+  return q.qty+q.unitLabel;
+}
+
+// ---------- スコア ----------
+function percentile(arr, key){
+  const vals = arr.map(key).filter(v=>v!=null).sort((a,b)=>a-b);
+  return v => v==null? null : vals.filter(x=>x<=v).length/vals.length;
+}
+function score(items){
+  const w = +$('w').value/100;              // 0=量重視, 1=レビュー重視
+  items.forEach(it=>{ it.rev = it.reviewCount? it.reviewAverage * it.reviewCount/(it.reviewCount+20) : 0; });
+  const pRev = percentile(items, it=>it.rev);
+  const byType = {};
+  items.forEach(it=>{ if(it.q){ (byType[it.q.type] ||= []).push(it); } });
+  const pQty = {};
+  for(const t in byType) pQty[t] = percentile(byType[t], it=>it.per);
+  items.forEach(it=>{
+    const pq = it.q? pQty[it.q.type](it.per) : 0;
+    it.score = Math.round(100 * ((1-w)*pq + w*pRev(it.rev)));
+  });
+  items.sort((a,b)=> b.score-a.score);
+}
+
+// ---------- 描画 ----------
+let items = [], overrides = JSON.parse(store.get('ov','{}'));
+function render(){
+  score(items);
+  const list = $('list'); list.innerHTML = '';
+  $('empty').style.display = items.length? 'none':'block';
+  items.forEach((it,i)=>{
+    const li = document.createElement('li');
+    const qtxt = fmtQty(it.q);
+    const perTxt = it.q ? (it.q.type==='個' ? it.per.toFixed(1)+it.q.unitLabel : fmtQty({type:it.q.type, qty:Math.round(it.per)})) : '—';
+    li.innerHTML = `
+      <div>
+        <div class="name"><a href="${it.itemUrl}" target="_blank" rel="noopener">${i+1}. ${esc(it.itemName)}</a></div>
+        <div class="sub">${esc(it.shopName)}　<b>${it.itemPrice.toLocaleString()}円</b>　レビュー ${it.reviewCount? it.reviewAverage.toFixed(1)+'（'+it.reviewCount+'件）':'なし'}</div>
+        <div class="qty">${qtxt? `内容量 <b>${qtxt}</b>${it.q.note? ' <span class="cap">'+it.q.note+'</span>':''}` : '<span class="none">内容量を読み取れず</span>'}
+          <button data-i="${i}">修正</button></div>
+      </div>
+      <div class="per"><div class="big">${perTxt}</div><div class="cap">1万円あたり</div><span class="sc">総合 ${it.score}</span></div>`;
+    list.appendChild(li);
+  });
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+$('list').addEventListener('click', e=>{
+  const b = e.target.closest('button[data-i]'); if(!b) return;
+  const it = items[+b.dataset.i];
+  const v = prompt('内容量を入力（例：1.2kg、500g×3、12個）', fmtQty(it.q)||'');
+  if(v===null) return;
+  const q = parseQty(v); if(!q){ alert('読み取れませんでした。数字＋単位で入力してください'); return; }
+  overrides[it.itemCode] = v; store.set('ov', JSON.stringify(overrides));
+  it.q = q; it.per = q.qty / it.itemPrice * 10000; render();
+});
+$('w').addEventListener('input', ()=>{ if(items.length) render(); });
+
+// ---------- ジャンルID候補 ----------
+function renderGenres(){
+  const cnt = {};
+  items.forEach(it=>{ if(it.genreId) cnt[it.genreId]=(cnt[it.genreId]||0)+1; });
+  const box = $('genres'); box.innerHTML = '';
+  Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,6).forEach(([g,n])=>{
+    const c = document.createElement('button'); c.className='chip'+(g===$('genre').value?' on':'');
+    c.textContent = `ジャンル ${g}（${n}件）`;
+    c.onclick = ()=>{ $('genre').value = $('genre').value===g? '' : g; store.set('genre',$('genre').value); renderGenres(); };
+    box.appendChild(c);
+  });
+}
+
+// ---------- 検索の実行 ----------
+let stopFlag = false;
+$('stop').onclick = ()=>{ stopFlag = true; };
+$('go').onclick = async ()=>{
+  if(!$('appId').value.trim()){ setStatus('設定欄に楽天アプリIDを入力してください', true); $('appId').focus(); return; }
+  if(!$('kw').value.trim()){ setStatus('キーワードを入力してください', true); $('kw').focus(); return; }
+  $('go').disabled = true; $('stop').disabled = false; stopFlag = false; items = [];
+  const pages = +$('pages').value; let total = null;
+  try{
+    for(let p=1; p<=pages; p++){
+      if(stopFlag){ setStatus(`中止しました（${items.length}件）`); break; }
+      setStatus(`取得中 ${p}/${pages}ページ…`);
+      const d = await fetchPage(p);
+      if(d.error){ throw new Error(d.error_description || d.error); }
+      total = d.count; 
+      (d.Items||[]).forEach(raw=>{
+        const it = {...raw};
+        it.q = overrides[it.itemCode] ? parseQty(overrides[it.itemCode]) : parseQty(it.itemName);
+        it.per = it.q ? it.q.qty / it.itemPrice * 10000 : null;
+        items.push(it);
+      });
+      render(); renderGenres();
+      if(p >= (d.pageCount||1)) break;
+      if(p < pages) await sleep(1200);   // 連続アクセスの制限を避ける
+    }
+    if(!stopFlag){
+      const miss = items.filter(x=>!x.q).length;
+      setStatus(`${items.length}件を表示（該当 ${total??'?'}件）。内容量を読み取れなかったもの ${miss}件は「修正」から入力できます`);
+    }
+  }catch(e){ setStatus('エラー: '+e.message+'（アプリIDや通信状況を確認してください）', true); }
+  $('go').disabled = false; $('stop').disabled = true;
+};
+function setStatus(t, err){ const s=$('status'); s.textContent=t; s.className='status'+(err?' err':''); }
+</script>
+</body>
+</html>
